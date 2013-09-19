@@ -25,26 +25,45 @@ end
 
 opt.parse! ARGV
 
-if to_eval
-  puts Dang.it(to_eval)
+def build_input(string, args)
+  return StringIO.new(string) if string
 
-else
-  input = ARGV.shift
+  filename = args.shift
+  return $stdin unless $stdin.tty?
+  return unless filename
 
-  if !input
-    puts opt
-    exit 1
-  end
-
-  data = Dang.it(File.read(input))
-
-  if output = ARGV.shift
-    File.open output, "w" do |f|
-      f.puts data
-    end
-
-    $stderr.puts "Wrote HTML to '#{output}'"
+  if filename == "-"
+    $stdin
   else
-    puts data
+    File.open(filename)
   end
 end
+
+class Output
+  def initialize(filename)
+    @filename = filename
+    @io = build_io
+  end
+
+  def puts(data)
+    @io.puts(data)
+    $stderr.puts "Wrote HTML to '#{@filename}'" if @filename
+  end
+
+  def build_io
+    if @filename
+      File.open @filename, "w"
+    else
+      $stdout
+    end
+  end
+end
+
+unless input = build_input(to_eval, ARGV)
+  puts opt
+  exit 1
+end
+
+output = Output.new(ARGV.shift)
+
+output.puts Dang.it(input.read)
